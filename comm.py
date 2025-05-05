@@ -137,7 +137,7 @@ async def finalize_captains(ctx, vote_counts):
     captains.clear()
     captains.extend(chosen)
 
-    await ctx.send(f"🏆 Captains selected:\n1️⃣ {captains[0].mention}\n2️⃣ {captains[1].mention}")
+    await ctx.send(f"🏆 Captains selected:\n1⃣ {captains[0].mention}\n2⃣ {captains[1].mention}")
 
     await pick_players(ctx)
 
@@ -149,10 +149,14 @@ async def pick_players(ctx):
     async def prompt_next_pick():
         nonlocal pick_index
         if pick_index >= len(turn_order):
-            # One player left, assign to team2
-            team2.append(remaining[0])
+            # One player left, assign to the team with fewer players
+            last_player = remaining[0]
+            if len(team1) < len(team2):
+                team1.append(last_player)
+            else:
+                team2.append(last_player)
             chosen_map = random.choice(map_pool)
-            await ctx.send(f"🗺️ Match setup complete! Map: **{chosen_map}**")
+            await ctx.send(f"🌺 Match setup complete! Map: **{chosen_map}**")
 
             guild = ctx.guild
             team1_vc = discord.utils.get(guild.voice_channels, name="Team 1")
@@ -255,4 +259,4 @@ async def help(ctx):
 """
     await ctx.send(help_message)
 
-bot.run("Token here")
+bot.run("TOKEN")
