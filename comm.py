@@ -19,7 +19,6 @@ team1 = []
 team2 = []
 map_pool = ["A", "B", "C", "D", "E", "F"]
 
-# Remove default help
 bot.remove_command("help")
 
 @bot.event
@@ -97,7 +96,6 @@ async def join(ctx):
         await ctx.send("🎮 Queue full! Voting for captains is starting...")
         await start_captain_voting(ctx)
 
-
 async def start_captain_voting(ctx):
     vote_counts = Counter()
 
@@ -125,9 +123,7 @@ async def start_captain_voting(ctx):
 
     await ctx.send("🗳️ Click a button to vote for captains (you can only vote once):", view=VotingView())
 
-
 async def finalize_captains(ctx, vote_counts):
-    # Get top two players
     if len(vote_counts) < 2:
         await ctx.send("⚠️ Not enough votes. Picking captains randomly.")
         chosen = random.sample(player_queue, 2)
@@ -138,7 +134,6 @@ async def finalize_captains(ctx, vote_counts):
     captains.extend(chosen)
 
     await ctx.send(f"🏆 Captains selected:\n1⃣ {captains[0].mention}\n2⃣ {captains[1].mention}")
-
     await pick_players(ctx)
 
 async def pick_players(ctx):
@@ -149,26 +144,13 @@ async def pick_players(ctx):
     async def prompt_next_pick():
         nonlocal pick_index
         if pick_index >= len(turn_order):
-            # One player left, assign to the team with fewer players
             last_player = remaining[0]
             if len(team1) < len(team2):
                 team1.append(last_player)
             else:
                 team2.append(last_player)
-            chosen_map = random.choice(map_pool)
-            await ctx.send(f"🌺 Match setup complete! Map: **{chosen_map}**")
 
-            guild = ctx.guild
-            team1_vc = discord.utils.get(guild.voice_channels, name="Team 1")
-            team2_vc = discord.utils.get(guild.voice_channels, name="Team 2")
-
-            for vc in [team1_vc, team2_vc]:
-                await vc.set_permissions(guild.default_role, connect=False)
-
-            for p in team1:
-                await team1_vc.set_permissions(p, connect=True)
-            for p in team2:
-                await team2_vc.set_permissions(p, connect=True)
+            await start_map_voting(ctx)
             return
 
         current_captain = turn_order[pick_index]
@@ -221,6 +203,61 @@ async def pick_players(ctx):
 
     await prompt_next_pick()
 
+async def start_map_voting(ctx):
+    vote_counts = Counter()
+
+    class MapVoteButton(Button):
+        def __init__(self, map_name):
+            super().__init__(label=map_name, style=discord.ButtonStyle.secondary)
+            self.map_name = map_name
+
+        async def callback(self, interaction: discord.Interaction):
+            if interaction.user not in player_queue:
+                await interaction.response.send_message("❌ You are not in the queue.", ephemeral=True)
+                return
+
+            if hasattr(interaction.user, 'voted'):
+                await interaction.response.send_message("❌ You have already voted.", ephemeral=True)
+                return
+
+            vote_counts[self.map_name] += 1
+            setattr(interaction.user, 'voted', True)
+            await interaction.response.send_message(f"✅ You voted for map **{self.map_name}**.", ephemeral=True)
+
+    class MapVotingView(View):
+        def __init__(self, timeout=20):
+            super().__init__(timeout=timeout)
+            for m in map_pool:
+                self.add_item(MapVoteButton(m))
+
+        async def on_timeout(self):
+            await finalize_map_vote(ctx, vote_counts)
+
+    await ctx.send("🗳️ Time to vote for the map! Click a button below to vote:", view=MapVotingView())
+
+async def finalize_map_vote(ctx, vote_counts):
+    if not vote_counts:
+        chosen_map = random.choice(map_pool)
+        await ctx.send(f"⚠️ No votes were cast. Randomly selected map: **{chosen_map}**")
+    else:
+        top_votes = vote_counts.most_common()
+        highest = top_votes[0][1]
+        top_maps = [m for m, v in top_votes if v == highest]
+        chosen_map = random.choice(top_maps)
+        await ctx.send(f"🗺️ Map selected by vote: **{chosen_map}**")
+
+    guild = ctx.guild
+    team1_vc = discord.utils.get(guild.voice_channels, name="Team 1")
+    team2_vc = discord.utils.get(guild.voice_channels, name="Team 2")
+
+    for vc in [team1_vc, team2_vc]:
+        await vc.set_permissions(guild.default_role, connect=False)
+
+    for p in team1:
+        await team1_vc.set_permissions(p, connect=True)
+    for p in team2:
+        await team2_vc.set_permissions(p, connect=True)
+
 @bot.command()
 async def resetqueue(ctx):
     allowed_roles = ["Owner", "COM MODERATOR", "COM ADMIN", "COM CAPTAIN"]
@@ -259,4 +296,4 @@ async def help(ctx):
 """
     await ctx.send(help_message)
 
-bot.run("TOKEN")
+bot.run(".")
