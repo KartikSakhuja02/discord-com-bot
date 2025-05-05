@@ -255,4 +255,4 @@ async def help(ctx):
 """
     await ctx.send(help_message)
 
-bot.run("MTM2ODQ2ODI5OTc3OTkzNjM3Ng.Gpyr0o.Hqwa8c6sjm0EPqm2mqKVMlALQIH08J9RT7ttdQ")
+bot.run("Token here")
